@@ -1,11 +1,7 @@
 
-# Welcome to your CDK Python project!
-
-This is a blank project for CDK development with Python.
-
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
-To manually create a virtualenv on MacOS and Linux:
+To manually create a virtualenv:
 
 ```
 $ python -m venv .venv
@@ -18,10 +14,12 @@ step to activate your virtualenv.
 $ source .venv/bin/activate
 ```
 
-Once the virtualenv is activated, you can install the required dependencies.
+Once the virtualenv is activated, you can install the required dependencies:
 
 ```
-$ pip install -r requirements-dev.txt
+$ pip install -r requirements-cdk.txt
+$ pip install -r requirements-test.txt
+$ pip install -r requirements-lambda.txt
 ```
 
 At this point you can now synthesize the CloudFormation template for this code.
@@ -30,9 +28,12 @@ At this point you can now synthesize the CloudFormation template for this code.
 $ cdk synth
 ```
 
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
+And deploy
+
+```
+$ pip install -r requirements-lambda.txt --target src/common/python
+$ cdk deploy
+```
 
 ## Useful commands
 

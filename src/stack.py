@@ -1,3 +1,4 @@
+from os import path
 from aws_cdk import (
     aws_apigateway as apigw,
     aws_dynamodb as ddb,
@@ -9,6 +10,9 @@ from aws_cdk import (
 from constructs import Construct
 from src import settings
 
+
+def abs_path(name):
+    return path.normpath(path.join(path.dirname(__file__), name))
 
 class BaseStack(Stack):
     RUNTIME = None
@@ -30,10 +34,10 @@ class BaseStack(Stack):
         self.env_variables.update(settings.LAMBDA_ENV)
         self.api = None
 
-    def add_layer(self, name, path, description) -> aws_lambda.LayerVersion:
+    def add_layer(self, name, description) -> aws_lambda.LayerVersion:
         layer = aws_lambda.LayerVersion(
-            self, name,
-            code=aws_lambda.Code.from_asset(path),
+            self, f"{name}-layer",
+            code=aws_lambda.Code.from_asset(abs_path(name)),
             compatible_runtimes=[self.RUNTIME],
             description=description,
         )
@@ -47,7 +51,7 @@ class DynamoTable(Construct):
                  sort_key: str = None, sort_key_type: ddb.AttributeType = ddb.AttributeType.STRING,
                  env_variable_name: str = None):
 
-        super().__init__(scope, f'DynamoTable-{name}')
+        super().__init__(scope, f'#{name}')
         partition_key = {'name': partition_key, 'type': partition_key_type}
         sort_key = {'name': sort_key, 'type': sort_key_type} if sort_key else None
 
@@ -73,7 +77,7 @@ class DynamoTable(Construct):
 
 class Api(Construct):
     def __init__(self, scope: BaseStack, name: str, api_key: str = None, usage_plan: str = None):
-        super().__init__(scope, f"Api-{name}")
+        super().__init__(scope, f"#{name}")
         self.scope = scope
         self.api = apigw.RestApi(self, name)
         self.api_key = None
@@ -113,16 +117,16 @@ class Lambda(Construct):
     def __init__(self, scope: BaseStack, lambda_name: str, 
                  timeout: int = 60, source: str = None, **kwargs):
 
-        super().__init__(scope, f'Lambda-{lambda_name}')
+        super().__init__(scope, f'#{lambda_name}')
         kwargs.update(scope.env_variables)
         kwargs['LAMBDA_NAME'] = lambda_name
         source = source or 'main.handler'
 
         self._lambda = aws_lambda.Function(scope, lambda_name,
             runtime=scope.RUNTIME,
-            code=aws_lambda.Code.from_asset(f"src/{lambda_name}"),
+            code=aws_lambda.Code.from_asset(abs_path(lambda_name)),
             layers=scope.lambda_layers,
-            handler=f"{lambda_name}.{source}",
+            handler=source,
             timeout=Duration.seconds(timeout),
             environment=kwargs,
             tracing=aws_lambda.Tracing.ACTIVE,
@@ -142,8 +146,7 @@ class MainStack(BaseStack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id,  **kwargs)
 
-        self.add_layer("common-layer", "src/common", "Lambda Common Dependencies (requirements.txt)")
-        self.add_layer("shared-layer", "src/shared", "Lambda Shared Dependencies")
+        self.add_layer("common", "Lambda Common Dependencies")
 
         table_items = DynamoTable(self, 'items',
             partition_key='id', partition_key_type=ddb.AttributeType.STRING,
