@@ -1,0 +1,15 @@
+setuptools
+wheel
+aws-cdk-lib==2.79.1
+constructs>=10.0.0,<11.0.0
+pytest==6.2.5
+moto==2.2.12
+
+parameterized==0.8.1
+fastapi==0.95.2
+boto3==1.26.135
+mangum==0.17.0
+
+-e ./shared
+-e ./lambda-toolkit
+-e ./cdk-toolkit

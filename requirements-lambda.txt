@@ -1,4 +1,5 @@
-./shared-code
+./shared
+./lambda-toolkit
 fastapi==0.95.2
 boto3==1.26.135
 mangum==0.17.0
