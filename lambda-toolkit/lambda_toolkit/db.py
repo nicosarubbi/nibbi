@@ -10,9 +10,9 @@ class IndexDescriptor:
 
 
 class TableDescriptor(BaseModel):
-    name: str
-    model: type[BaseModel]
-    indexes: dict[str, IndexDescriptor] = None
+    name: str = None
+    model: type[BaseModel] = None
+    indexes: dict = None
     _table = None
 
     def describe_table(self, name: str, model: BaseModel, partition_key: str, sort_key: str=None):
@@ -20,9 +20,9 @@ class TableDescriptor(BaseModel):
         self.model = model
         if self.indexes is None:
             self.indexes = {}
-        self.indexes[None] = IndexDescriptor(None, partition_key, sort_key)
+        self.indexes[None] = IndexDescriptor(partition_key, sort_key)
 
-    def add_secondary_index(self, index_name: str, partition_key: str, sort_key: str=None):
+    def add_index(self, index_name: str, partition_key: str, sort_key: str=None):
         if self.indexes is None:
             self.indexes = {}
         self.indexes[index_name] = IndexDescriptor(partition_key, sort_key)
@@ -56,7 +56,7 @@ class DDB:
         def decorator(model: type[BaseModel]) -> type[BaseModel]:
             if not hasattr(model, '_META'):
                 model._META = TableDescriptor()
-            model._META.add_secondary_index(index_name, partition_key, sort_key)
+            model._META.add_index(index_name, partition_key, sort_key)
             return model
         return decorator
 

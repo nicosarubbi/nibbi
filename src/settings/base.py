@@ -13,6 +13,4 @@ API_KEY_NAME = 'api_key'
 API_USAGE_PLAN_NAME = 'api_usage_plan'
 VERSION = '0.0.1'
 
-LAMBDA_ENV = {}
-
 LOGGER_LEVEL = 'INFO'

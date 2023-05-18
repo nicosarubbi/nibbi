@@ -30,6 +30,7 @@ And deploy
 
 ```
 $ pip install -r requirements-lambda.txt --target src/common/python
+$ cdk synth
 $ cdk deploy
 ```
 

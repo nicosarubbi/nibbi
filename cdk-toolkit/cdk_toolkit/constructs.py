@@ -4,42 +4,35 @@ from aws_cdk import (
     aws_dynamodb as ddb,
     aws_lambda,
     Duration,
-    Environment,
     Stack,
 )
 from constructs import Construct
-from src import settings
-
-
-def abs_path(path, name):
-    return path.normpath(path.join(path, name))
 
 
 class BaseStack(Stack):
     RUNTIME = aws_lambda.Runtime.PYTHON_3_10
     SOURCE_PATH = "/src"
+    VERSION='0.0.0'
+    LOGGER_LEVEL='INFO'
+    SERVICE_NAME='App'
+    ENVIRONMENT=''
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        if settings.AWS_ACCOUNT_ID:
-            kwargs['env'] = Environment(settings.AWS_ACCOUNT_ID, settings.AWS_REGION)
-
         super().__init__(scope, construct_id,  **kwargs)
         self.lambda_layers = []
         self.dynamo_tables = []
         self.env_variables = dict(
-            ENVIRONMENT=settings.ENV,
-            VERSION=settings.VERSION,
-            LOGGER_LEVEL=settings.LOGGER_LEVEL,
-            PROJECT_NAME=settings.SERVICE_NAME,
-            LAMBDA_NAME='',
+            ENVIRONMENT=self.ENVIRONMENT,
+            VERSION=self.VERSION,
+            LOGGER_LEVEL=self.LOGGER_LEVEL,
+            SERVICE_NAME=self.SERVICE_NAME,
         )
-        self.env_variables.update(settings.LAMBDA_ENV)
         self.api = None
 
     def add_layer(self, name, description) -> aws_lambda.LayerVersion:
         layer = aws_lambda.LayerVersion(
             self, f"{name}-layer",
-            code=aws_lambda.Code.from_asset(abs_path(self.SOURCE_PATH, name)),
+            code=aws_lambda.Code.from_asset(path.normpath(path.join(self.SOURCE_PATH, name))),
             compatible_runtimes=[self.RUNTIME],
             description=description,
         )
@@ -64,7 +57,7 @@ class DynamoTable(Construct):
         self.name = name
         self.scope = scope
         self.scope.dynamo_tables.append(self)
-
+        
         env_variable_name = env_variable_name or f"TABLE_{name}"
         self.scope.env_variables[env_variable_name] = self.table.table_name
 
@@ -92,7 +85,7 @@ class Api(Construct):
             self.usage_plan.add_api_key(self.api_key)
             self.usage_plan.add_api_stage(stage=self.api.deployment_stage)
 
-    def get_resource(self, url, resources=None) -> apigw.Resource:
+    def _get_resource(self, url, resources=None) -> apigw.Resource:
         resources = resources or self.root
         if url in resources:
             return resources[url]
@@ -101,36 +94,36 @@ class Api(Construct):
         breadcrumb = url.split('/')
         sub_path = '/'.join(breadcrumb[:-1])
         end_path = breadcrumb[-1]
-        sub_resource = self.get_resource(sub_path, resources)
+        sub_resource = self._get_resource(sub_path, resources)
         resources[url] = sub_resource.add_resource(end_path)
         return resources[url]
 
-    def add(self, name: str, url: str, method: str, api_key_required: bool = False,
-            timeout: int = 60, source: str = None, **kwargs):
+    def add_lambda(self, name: str, url: str, method: str,
+                   api_key_required: bool = False, timeout: int = 30, env_variables=None):
 
-        function = Lambda(self.scope, name, timeout, source, **kwargs)
-        resource = self.get_resource(url)
+        function = Lambda(self.scope, name, timeout, env_variables)
+        resource = self._get_resource(url)
         integration = apigw.LambdaIntegration(function.alias)
         resource.add_method(method, integration, api_key_required=api_key_required)
         return function
 
 
 class Lambda(Construct):
-    def __init__(self, scope: BaseStack, name: str,
-                 timeout: int = 60, source: str = None, **kwargs):
+    def __init__(self, scope: BaseStack, name: str, timeout: int = 60, env_variables=None):
 
         super().__init__(scope, f'#{name}')
-        kwargs.update(scope.env_variables)
-        kwargs['LAMBDA_NAME'] = name
-        source = source or 'main.handler'
+        env = {}
+        env.update(scope.env_variables)
+        if env_variables:
+            env.update(env_variables)
 
         self._lambda = aws_lambda.Function(scope, name,
             runtime=scope.RUNTIME,
-            code=aws_lambda.Code.from_asset(abs_path(self.SOURCE_PATH, name)),
+            code=aws_lambda.Code.from_asset(path.normpath(path.join(scope.SOURCE_PATH, name))),
             layers=scope.lambda_layers,
-            handler=source,
+            handler='handler',
             timeout=Duration.seconds(timeout),
-            environment=kwargs,
+            environment=env,
             tracing=aws_lambda.Tracing.ACTIVE,
         )
 
