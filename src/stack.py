@@ -5,7 +5,7 @@ from aws_cdk.aws_dynamodb import AttributeType
 from aws_cdk.aws_lambda import Runtime
 
 from cdk_toolkit.constructs import BaseStack, DynamoTable, Api
-from src import settings
+import settings
 
 
 class MainStack(BaseStack):

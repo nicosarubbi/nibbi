@@ -4,7 +4,7 @@ from pydantic import BaseModel, constr, conint
 # constr
 
 NAME_CONSTR = constr(min_length=1, max_length=50)
-DESCRIPTION_CONSTR = constr(min_length=0, max_length=100)
+DESCRIPTION_CONSTR = constr(min_length=0, max_length=255)
 PRICE_CONINT = conint(ge=0, le=1_000_000)
 
 

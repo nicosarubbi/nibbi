@@ -1,9 +1,6 @@
-from fastapi import APIRouter, Header, status
-from uuid import uuid4
+from fastapi import APIRouter, status, HTTPException
 
 from lambda_toolkit import api
-from lambda_toolkit.db import DDB
-
 from shared import models
 
 from .serializers import ItemRequest, ItemSerializer
@@ -12,16 +9,19 @@ from .serializers import ItemRequest, ItemSerializer
 router = APIRouter()
 
 
-@router.post('/items', status_code=status.HTTP_200_OK)
-def handler(request: ItemRequest) -> ItemSerializer:
-    ddb = models.DDB()
-
-    item = models.Item(
-        id=str(uuid4()),
-        name=request.name,
-        description=request.description,
-        price=request.price,
+@router.post('/items', status_code=status.HTTP_201_CREATED)
+def post_items(request: ItemRequest) -> ItemSerializer:
+    item = models.Item.create(
+        request.name,
+        request.description,
+        request.price,
     )
-    DDB.put_item(item)
-    
+    return api.serialize(ItemSerializer, item)
+
+
+@router.get('/items/{item_id}', status_code=status.HTTP_200_OK)
+def retrieve_item(item_id: str) -> ItemSerializer:
+    item = models.Item.get_by_id(item_id)
+    if item is None:
+        raise HTTPException(404, 'not found')
     return api.serialize(ItemSerializer, item)

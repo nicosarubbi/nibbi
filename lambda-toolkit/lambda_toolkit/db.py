@@ -1,6 +1,7 @@
 import os
 import boto3
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
+from typing import Any
 
 
 class IndexDescriptor:
@@ -9,11 +10,12 @@ class IndexDescriptor:
         self.sort_key = sort_key
 
 
+
 class TableDescriptor(BaseModel):
     name: str = None
     model: type[BaseModel] = None
     indexes: dict = None
-    _table = None
+    _table: Any = PrivateAttr(None)
 
     def describe_table(self, name: str, model: BaseModel, partition_key: str, sort_key: str=None):
         self.name = name
@@ -39,22 +41,22 @@ class DDB:
 
     def __init__(self):
         if DDB._client is None:
-            DDB.client = boto3.resource("dynamodb")
+            DDB._client = boto3.resource("dynamodb")
         self.client = DDB._client
 
     @classmethod
     def table(cls, table_name, partition_key, sort_key=None):
         def decorator(model: type[BaseModel]) -> type[BaseModel]:
-            if not hasattr(model, '_META'):
-                model._META = TableDescriptor()
-            model._META.describe_table(table_name, model, partition_key, sort_key)
+            if not hasattr(model, '_Meta'):
+                model._Meta = TableDescriptor()
+            model._Meta.describe_table(table_name, model, partition_key, sort_key)
             return model
         return decorator
     
     @classmethod
     def secondary_index(cls, index_name, partition_key, sort_key=None):
         def decorator(model: type[BaseModel]) -> type[BaseModel]:
-            if not hasattr(model, '_META'):
+            if not hasattr(model, '_Meta'):
                 model._META = TableDescriptor()
             model._META.add_index(index_name, partition_key, sort_key)
             return model
@@ -65,14 +67,14 @@ class DDB:
         if not isinstance(model, type):
             model = type(model)
         assert issubclass(model, BaseModel), f'Invalid Type: {model}'
-        assert hasattr(model, '_META'), 'Missing Table Description'
-        assert model._META.name is not None, 'Incomplete Table Description'
+        assert hasattr(model, '_Meta'), 'Missing Table Description'
+        assert model._Meta.name is not None, 'Incomplete Table Description'
 
-    def push_item(self, item: BaseModel):
+    def put_item(self, item: BaseModel, **kwargs):
         self._validate_model(item)
-        item._META.table.put_item(item.dict())
+        item._Meta.table.put_item(Item=item.dict(), **kwargs)
     
     def get_item(self, model: type[BaseModel], **key) -> BaseModel:
         self._validate_model(model)
-        raw = model._META.table.get_item(Key=key)
-        return model(raw['Item']) if 'Item' in raw else None
+        raw = model._Meta.table.get_item(Key=key)
+        return model(**raw['Item']) if 'Item' in raw else None
