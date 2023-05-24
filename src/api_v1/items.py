@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status, HTTPException
 
-from lambda_toolkit import api
+from toolkit import api
 from shared import models
 
 from .serializers import ItemRequest, ItemSerializer

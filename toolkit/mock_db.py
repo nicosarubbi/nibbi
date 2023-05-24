@@ -1,10 +1,9 @@
 from decimal import Decimal
-
-import boto3
 from pydantic import BaseModel
 
-from lambda_toolkit.db import TableDescriptor, IndexDescriptor
-from src.api_v1 import app
+import boto3
+
+from lambda_toolkit.db import TableDescriptor, IndexDescriptor, DDB
 
 
 def _index_schema(index: IndexDescriptor) -> list[dict]:
@@ -31,8 +30,9 @@ def _field_type(model: type[BaseModel], field_name):
     raise TypeError(f'DynamoDB Index field `{field_name}` should be either string or numeric')
 
 
-def table_schema(model: type[BaseModel]):
-    meta: TableDescriptor = model._Meta
+def mock_schema(model: type[BaseModel]):
+    DDB.validate_model(model)
+    meta: TableDescriptor = model._META
     schema = dict(
         TableName=meta.name,
     )
@@ -58,9 +58,35 @@ def table_schema(model: type[BaseModel]):
     return schema
 
 
+def table_schema(model: type[BaseModel]):
+    DDB.validate_model(model)
+    CDK_FIELD_TYPE = {
+        'S': 'STRING',
+        'N': 'NUMBER',
+    }
+    meta: TableDescriptor = model._META
+    schema = dict(
+        name=meta.name,
+    )
+    secondary_indexes = []
+    for name, index in meta.indexes.items():
+        index_schema = {}
+        index_schema['partition_key'] = index.partition_key
+        index_schema['partition_key_type'] = CDK_FIELD_TYPE[_field_type(model, index.partition_key)]
+        if index.sort_key:
+            index_schema['sort_key'] = index.sort_key
+            index_schema['sort_key_type'] = CDK_FIELD_TYPE[_field_type(model, index.sort_key)]
+        if name is None:
+            schema.update(index_schema)
+        else:
+            index_schema['name'] = name
+            secondary_indexes.append(index_schema)
+    return schema, secondary_indexes
+
+
 def mock_table(model):
-    model._Meta._table = None
+    model._META._table = None
     dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-    schema = table_schema(model)
+    schema = mock_schema(model)
     return dynamodb.create_table(**schema)
 

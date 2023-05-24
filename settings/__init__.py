@@ -1,7 +1,7 @@
 from os import getenv
-from .base import *
+from .default import *
 
-ENV = getenv('ENVIRONMENT', 'development')
+ENV = getenv('ENVIRONMENT', 'DEV')
 
 
 if ENV == 'SANDBOX':

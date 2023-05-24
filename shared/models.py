@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from lambda_toolkit.db import DDB
+from toolkit.db import DDB
 from uuid import uuid4
 
 

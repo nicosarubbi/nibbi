@@ -5,9 +5,7 @@ __pycache__
 .pytest_cache
 .venv
 *.egg-info
-src/common/python
-# CDK asset staging directory
 .cdk.staging
 cdk.out
-lambda-toolkit/build/
 shared/build/
+layers/*/python

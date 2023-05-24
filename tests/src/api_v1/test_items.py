@@ -3,7 +3,7 @@ from unittest import TestCase
 from fastapi.testclient import TestClient
 from moto import mock_dynamodb2
 
-from cdk_toolkit import mock_db
+from toolkit import mock_db
 from shared import models
 from src.api_v1 import app
 
