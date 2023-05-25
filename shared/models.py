@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from toolkit.db import DDB
+from lambda_toolkit.db import DDB
 from uuid import uuid4
 
 
@@ -12,7 +12,7 @@ class Item(BaseModel):
     price: int
 
     @classmethod
-    def create(cls, name: str, description: str, price: int):
+    def create(cls, name: str, description: str, price: int) -> 'Item':
         item = cls(
             id=uuid4().hex,
             name=name,

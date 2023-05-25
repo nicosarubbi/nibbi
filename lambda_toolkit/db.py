@@ -1,8 +1,8 @@
 import os
 import boto3
 from pydantic import BaseModel, PrivateAttr
-from typing import Any
-from boto3.dynamodb.conditions import Key
+from typing import Any, Iterable, Callable
+from boto3.dynamodb.conditions import Key, Attr
 
 
 class IndexDescriptor:
@@ -48,6 +48,15 @@ class DDB:
             DDB._client = boto3.resource("dynamodb")
         self.client = DDB._client
 
+    @staticmethod
+    def meta(model: type[BaseModel]) -> TableDescriptor:
+        if not isinstance(model, type):
+            model = type(model)
+        assert issubclass(model, BaseModel), f'Invalid Type: {model}'
+        assert hasattr(model, '_META'), 'Missing Table Description'
+        assert model._META.name is not None, 'Incomplete Table Description'
+        return model
+
     @classmethod
     def table(cls, table_name, partition_key, sort_key=None):
         def decorator(model: type[BaseModel]) -> type[BaseModel]:
@@ -66,26 +75,20 @@ class DDB:
             return model
         return decorator
 
-    @staticmethod
-    def validate_model(model):
-        if not isinstance(model, type):
-            model = type(model)
-        assert issubclass(model, BaseModel), f'Invalid Type: {model}'
-        assert hasattr(model, '_META'), 'Missing Table Description'
-        assert model._META.name is not None, 'Incomplete Table Description'
-
     def put_item(self, item: BaseModel, **kwargs):
-        self.validate_model(item)
-        item._META.table.put_item(Item=item.dict(), **kwargs)
+        self.meta(item).table.put_item(Item=item.dict(), **kwargs)
     
     def get_item(self, model: type[BaseModel], **key) -> BaseModel:
-        self.validate_model(model)
-        raw = model._META.table.get_item(Key=key)
+        raw = self.meta(model).table.get_item(Key=key)
         return model(**raw['Item']) if 'Item' in raw else None
+    
+    def delete_item(self, item: BaseModel):
+        index = self.meta(item).indexes[None]
+        key = index.get_key(item)
+        self.meta(item).table.delete_item(Key=key)
 
     def batch_get_item(self, model: type[BaseModel], keys: list[dict]) -> list[BaseModel]:
-        self.validate_model(model)
-        table_name = model._META.table_name
+        table_name = self.meta(model).table_name
 
         while keys:
             response = self.client.batch_get_item(
@@ -97,8 +100,7 @@ class DDB:
             keys = response.get('UnprocessedKeys', {}).get('Keys', [])
 
     def update_item(self, item: BaseModel, values: dict, **kwargs) -> BaseModel:
-        self.validate_model(item)
-        index = item._META.indexes[None]
+        index = self.meta(item).indexes[None]
         key = index.get_key(item)
         query_expressions = []
         query_values = {}
@@ -112,7 +114,7 @@ class DDB:
             query_values[f':{field}'] = value
             query_names[f'#{field}'] = field
         expresion = 'SET ' + ', '.join(query_expressions)
-        response = item._META.table.update_item(
+        response = self.meta(item).table.update_item(
             Key=key,
             UpdateExpression=expresion,
             ExpressionAttributeValues=query_values,
@@ -124,25 +126,23 @@ class DDB:
             setattr(item, attr, value)
         return item
 
-    def simple_query(self, model: type[BaseModel], index=None, **conditions) -> list[BaseModel]:
+    def simple_query(self, model: type[BaseModel], index_name=None, **conditions) -> Iterable[BaseModel]:
+        """ DDB().simple_query(Product, 'category-index', category='fruit')
         """
-        DDB().simple_query(
-            Product,
-            category='fruit',
-            index='category-index',
-        )
-        """
-        self.validate_model(model)
         args = None
         for key, value in conditions.items():
             if args:
                 args = args & Key(key).eq(value)
             else:
                 args = Key(key).eq(value)
-        return self.query(model, args, index=index)
+        return self.query(model, args, index_name=index_name)
 
-    def query(self, model: type[BaseModel], condition=None,
-              index=None, start=None, limit=None, pagination=100, **kwargs) -> list[BaseModel]:
+    def query(self, model: type[BaseModel], key_expression, *,
+              index_name=None,  # IndexName
+              filter_expression=None,  # FilterConditionExpression
+              after=None,  # ExclusiveStartKey
+              backward=False,  # not ScanIndexForward
+              **kwargs) -> Iterable[BaseModel]:
         """
         DDB().query(
             Product,
@@ -150,60 +150,42 @@ class DDB:
             index='category-index',
         )
         """
-        self.validate_model(model)
-        assert index in model._META.indexes
-        args = dict(
-            KeyConditionExpression=condition,
-            Limit=min(limit, pagination) if limit else pagination,
-        )
-        if index:
-            args['IndexName'] = index
-        if start:
-            args['ExclusiveStartKey'] = start
+        assert index_name in self.meta(model).indexes
+        args = {'KeyConditionExpression': key_expression}
+        if index_name:
+            args['IndexName'] = index_name
+        if filter_expression:
+            args['FilterExpression'] = index_name
+        if after:
+            args['ExclusiveStartKey'] = after
+        if backward:
+            args['ScanIndexForward'] = False
         args.update(kwargs)
 
-        result = model._META.table.query(**args)
-        raw_items = result.get('Items') or result.get('Item') or []
-        count = 0
-        while True:
-            for raw in raw_items:
-                yield model(**raw)
-                count += 1
-                if limit and count >= limit:
-                    break
+        return self.paginate(model, self.meta(model).table.query, **args)
 
-            if limit and count >= limit:
-                break
-            last_key = result.get('LastEvaluatedKey', None)
-            if not last_key:
-                break
-            args['ExclusiveStartKey'] = last_key
-            result = model._META.table.query(**args)
-            raw_items = result.get('Items') or result.get('Item') or []
-
-    def scan(self, model: type[BaseModel], condition=None, limit=None, start=None, **kwargs) -> list[BaseModel]:
+    def scan(self, model: type[BaseModel], filter_expression, *,
+             after=None,  # ExclusiveStartKey
+             backward=False,  # not ScanIndexForward
+             **kwargs) -> Iterable[BaseModel]:
         self.validate_model(model)
-        args = {}
-        if condition:
-            args['FilterExpression'] = condition
-        if start:
-            args['ExclusiveStartKey'] = start
-        
-        result = model._META.table.scan(**args)
-        raw_items = result.get('Items') or result.get('Item') or []
-        count = 0
+
+        args = {"FilterExpression": filter_expression}
+        if after:
+            args['ExclusiveStartKey'] = after
+        if backward:
+            args['ScanIndexForward'] = False
+        args.update(kwargs)
+        return self.paginate(model, self.meta(model).table.scan, **args)
+
+    @staticmethod
+    def paginate(model: BaseModel, function: Callable, **arguments) -> Iterable[BaseModel]:
         while True:
+            result = function(**arguments)
+            raw_items = result.get('Items', [])
+            last_key = result.get('LastEvaluatedKey', None)
             for raw in raw_items:
                 yield model(**raw)
-                count += 1
-                if limit and count >= limit:
-                    break
-
-            if limit and count >= limit:
-                break
-            last_key = result.get('LastEvaluatedKey', None)
             if not last_key:
                 break
-            args['ExclusiveStartKey'] = last_key
-            result = model._META.table.query(**args)
-            raw_items = result.get('Items') or result.get('Item') or []
+            arguments['ExclusiveStartKey'] = last_key

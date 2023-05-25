@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 import boto3
 
-from lambda_toolkit.db import TableDescriptor, IndexDescriptor, DDB
+from lambda_toolkit.db import IndexDescriptor, DDB
 
 
 def _index_schema(index: IndexDescriptor) -> list[dict]:
@@ -31,8 +31,7 @@ def _field_type(model: type[BaseModel], field_name):
 
 
 def mock_schema(model: type[BaseModel]):
-    DDB.validate_model(model)
-    meta: TableDescriptor = model._META
+    meta = DDB.meta(model)
     schema = dict(
         TableName=meta.name,
     )
@@ -59,12 +58,11 @@ def mock_schema(model: type[BaseModel]):
 
 
 def table_schema(model: type[BaseModel]):
-    DDB.validate_model(model)
     CDK_FIELD_TYPE = {
         'S': 'STRING',
         'N': 'NUMBER',
     }
-    meta: TableDescriptor = model._META
+    meta = DDB.meta(model)
     schema = dict(
         name=meta.name,
     )
@@ -85,7 +83,7 @@ def table_schema(model: type[BaseModel]):
 
 
 def mock_table(model):
-    model._META._table = None
+    DDB.meta(model)._table = None
     dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
     schema = mock_schema(model)
     return dynamodb.create_table(**schema)
