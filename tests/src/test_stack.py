@@ -4,7 +4,7 @@ import aws_cdk.assertions as assertions
 from src.stack import MainStack
 
 
-def test_sqs_queue_created():
+def test_cdk_stack():
     app = core.App()
     stack = MainStack(app, "app")
     template = assertions.Template.from_stack(stack)

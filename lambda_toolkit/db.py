@@ -1,8 +1,12 @@
 import os
 import boto3
 from pydantic import BaseModel, PrivateAttr
-from typing import Any, Iterable, Callable
+from typing import Any, Iterable, Callable, TypeVar
 from boto3.dynamodb.conditions import Key, Attr
+from typing import TypeVar
+
+
+Model = TypeVar("Model", bound="BaseModel")
 
 
 class IndexDescriptor:
@@ -12,7 +16,6 @@ class IndexDescriptor:
 
     def get_key(self, item: BaseModel):
         return { key: getattr(item, key) for key in [self.partition_key, self.sort_key] if key is not None }
-
 
 
 class TableDescriptor(BaseModel):
@@ -55,11 +58,11 @@ class DDB:
         assert issubclass(model, BaseModel), f'Invalid Type: {model}'
         assert hasattr(model, '_META'), 'Missing Table Description'
         assert model._META.name is not None, 'Incomplete Table Description'
-        return model
+        return model._META
 
     @classmethod
-    def table(cls, table_name, partition_key, sort_key=None):
-        def decorator(model: type[BaseModel]) -> type[BaseModel]:
+    def table(cls, table_name, partition_key, sort_key=None) -> Callable:
+        def decorator(model: type[Model]) -> type[Model]:
             if not hasattr(model, '_META'):
                 model._META = TableDescriptor()
             model._META.describe_table(table_name, model, partition_key, sort_key)
@@ -67,27 +70,27 @@ class DDB:
         return decorator
     
     @classmethod
-    def secondary_index(cls, index_name, partition_key, sort_key=None):
-        def decorator(model: type[BaseModel]) -> type[BaseModel]:
+    def secondary_index(cls, index_name, partition_key, sort_key=None) -> Callable:
+        def decorator(model: type[Model]) -> type[Model]:
             if not hasattr(model, '_META'):
                 model._META = TableDescriptor()
             model._META.add_index(index_name, partition_key, sort_key)
             return model
         return decorator
 
-    def put_item(self, item: BaseModel, **kwargs):
+    def put_item(self, item: Model, **kwargs):
         self.meta(item).table.put_item(Item=item.dict(), **kwargs)
     
-    def get_item(self, model: type[BaseModel], **key) -> BaseModel:
+    def get_item(self, model: type[Model], **key) -> Model:
         raw = self.meta(model).table.get_item(Key=key)
         return model(**raw['Item']) if 'Item' in raw else None
     
-    def delete_item(self, item: BaseModel):
+    def delete_item(self, item: Model):
         index = self.meta(item).indexes[None]
         key = index.get_key(item)
         self.meta(item).table.delete_item(Key=key)
 
-    def batch_get_item(self, model: type[BaseModel], keys: list[dict]) -> list[BaseModel]:
+    def batch_get_item(self, model: type[Model], keys: list[dict]) -> list[Model]:
         table_name = self.meta(model).table_name
 
         while keys:
@@ -99,7 +102,7 @@ class DDB:
                 yield model(**item)
             keys = response.get('UnprocessedKeys', {}).get('Keys', [])
 
-    def update_item(self, item: BaseModel, values: dict, **kwargs) -> BaseModel:
+    def update_item(self, item: Model, values: dict, **kwargs) -> Model:
         index = self.meta(item).indexes[None]
         key = index.get_key(item)
         query_expressions = []
@@ -126,7 +129,7 @@ class DDB:
             setattr(item, attr, value)
         return item
 
-    def simple_query(self, model: type[BaseModel], index_name=None, **conditions) -> Iterable[BaseModel]:
+    def simple_query(self, model: type[Model], index_name=None, **conditions) -> Iterable[Model]:
         """ DDB().simple_query(Product, 'category-index', category='fruit')
         """
         args = None
@@ -137,12 +140,12 @@ class DDB:
                 args = Key(key).eq(value)
         return self.query(model, args, index_name=index_name)
 
-    def query(self, model: type[BaseModel], key_expression, *,
+    def query(self, model: type[Model], key_expression, *,
               index_name=None,  # IndexName
               filter_expression=None,  # FilterConditionExpression
               after=None,  # ExclusiveStartKey
               backward=False,  # not ScanIndexForward
-              **kwargs) -> Iterable[BaseModel]:
+              **kwargs) -> Iterable[Model]:
         """
         DDB().query(
             Product,
@@ -164,10 +167,10 @@ class DDB:
 
         return self.paginate(model, self.meta(model).table.query, **args)
 
-    def scan(self, model: type[BaseModel], filter_expression, *,
+    def scan(self, model: type[Model], filter_expression, *,
              after=None,  # ExclusiveStartKey
              backward=False,  # not ScanIndexForward
-             **kwargs) -> Iterable[BaseModel]:
+             **kwargs) -> Iterable[Model]:
         self.validate_model(model)
 
         args = {"FilterExpression": filter_expression}
@@ -179,7 +182,7 @@ class DDB:
         return self.paginate(model, self.meta(model).table.scan, **args)
 
     @staticmethod
-    def paginate(model: BaseModel, function: Callable, **arguments) -> Iterable[BaseModel]:
+    def paginate(model: type[Model], function: Callable, **arguments) -> Iterable[Model]:
         while True:
             result = function(**arguments)
             raw_items = result.get('Items', [])

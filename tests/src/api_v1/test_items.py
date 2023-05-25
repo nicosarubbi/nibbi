@@ -1,19 +1,18 @@
 from unittest import TestCase
-
 from fastapi.testclient import TestClient
-from moto import mock_dynamodb2
+from cdk_toolkit import mock_db
+from lambda_toolkit.db import DDB
 
-from toolkit import mock_db
 from shared import models
 from src.api_v1 import app
 
 
-@mock_dynamodb2
 class TestPostItems(TestCase):
     client = TestClient(app)
 
-    def setUp(self):
-        self.items = mock_db.mock_table(models.Item)
+    @classmethod
+    def setUpClass(cls):
+        cls.items = mock_db.mock_table(models.Item)
 
     def test_api(self):
         body = {
@@ -30,3 +29,24 @@ class TestPostItems(TestCase):
         assert item.name == "sword"
         assert item.description == "melee weapon"
         assert item.price == 50
+
+
+class TestPostItems(TestCase):
+    client = TestClient(app)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.items = mock_db.mock_table(models.Item)
+        cls.sword = models.Item.create(name='sword', description='melee weapon', price=50)
+
+    def test_api(self):
+        response = self.client.get(f'/v1/items/{self.sword.id}')
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data == {
+            'id': self.sword.id,
+            'name': 'sword',
+            'description': 'melee weapon',
+            'price': 50,
+        }

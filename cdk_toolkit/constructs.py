@@ -14,13 +14,13 @@ from . import mock_db
 
 class BaseStack(Stack):
     RUNTIME = aws_lambda.Runtime.PYTHON_3_10
-    LAYERS_PATH = "/layers"
-    SOURCE_PATH = "/src"
+    LAYERS_PATH = "./layers"
+    SOURCE_PATH = "./src"
     LOGGER_LEVEL = 'INFO'
     VERSION = '0.0.0'
     SERVICE_NAME = 'App'
     ENVIRONMENT = 'TEST'
-    ACCOUNT_ID = None
+    AWS_ACCOUNT_ID = None
     AWS_REGION = None
 
     def __init__(self, scope, construct_id: str, **kwargs) -> None:
@@ -70,6 +70,7 @@ class DynamoTable(Construct):
         table = cls(scope, **schema)
         for index in secondary_indexes:
             table.add_secondary_index(**index)
+        return table
 
 
 class Lambda(Construct):
@@ -106,7 +107,7 @@ class Lambda(Construct):
         self.alias = self._lambda
 
         # give permission to write tables
-        for table in scope.dynamo_tables:
+        for table in tables:
             table.table.grant_read_write_data(self._lambda)
 
 

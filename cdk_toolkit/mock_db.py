@@ -4,6 +4,8 @@ from pydantic import BaseModel
 import boto3
 
 from lambda_toolkit.db import IndexDescriptor, DDB
+from aws_cdk import aws_dynamodb as ddb
+from moto import mock_dynamodb2
 
 
 def _index_schema(index: IndexDescriptor) -> list[dict]:
@@ -34,6 +36,7 @@ def mock_schema(model: type[BaseModel]):
     meta = DDB.meta(model)
     schema = dict(
         TableName=meta.name,
+        BillingMode="PAY_PER_REQUEST",
     )
     attributes = set([])
     for name, index in meta.indexes.items():
@@ -47,8 +50,7 @@ def mock_schema(model: type[BaseModel]):
             schema['GlobalSecondaryIndexes'].append(dict(
                 IndexName=name,
                 KeySchema=_index_schema(index),
-                Projection= {'ProjectionType': 'ALL'},
-                ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1},
+                Projection= {'ProjectionType': 'KEYS_ONLY'},
             ))
     schema['AttributeDefinitions'] = [
         {'AttributeName': name, 'AttributeType': _field_type(model, name)}
@@ -57,10 +59,18 @@ def mock_schema(model: type[BaseModel]):
     return schema
 
 
+@mock_dynamodb2
+def mock_table(model):
+    DDB.meta(model)._table = None
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+    schema = mock_schema(model)
+    return dynamodb.create_table(**schema)
+
+
 def table_schema(model: type[BaseModel]):
     CDK_FIELD_TYPE = {
-        'S': 'STRING',
-        'N': 'NUMBER',
+        'S': ddb.AttributeType.STRING,
+        'N': ddb.AttributeType.NUMBER,
     }
     meta = DDB.meta(model)
     schema = dict(
@@ -80,11 +90,4 @@ def table_schema(model: type[BaseModel]):
             index_schema['name'] = name
             secondary_indexes.append(index_schema)
     return schema, secondary_indexes
-
-
-def mock_table(model):
-    DDB.meta(model)._table = None
-    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-    schema = mock_schema(model)
-    return dynamodb.create_table(**schema)
 

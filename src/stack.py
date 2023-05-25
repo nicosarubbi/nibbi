@@ -9,7 +9,7 @@ class MainStack(BaseStack):
     SERVICE_NAME = settings.SERVICE_NAME
     ENVIRONMENT = settings.ENV
     LOGGER_LEVEL = settings.LOGGER_LEVEL
-    ACCOUNT_ID = settings.AWS_ACCOUNT_ID
+    AWS_ACCOUNT_ID = settings.AWS_ACCOUNT_ID
     AWS_REGION = settings.AWS_REGION
 
     def __init__(self, scope, construct_id: str, **kwargs) -> None:

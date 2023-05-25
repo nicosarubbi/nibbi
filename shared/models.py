@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Self
 from lambda_toolkit.db import DDB
 from uuid import uuid4
 
@@ -12,7 +12,7 @@ class Item(BaseModel):
     price: int
 
     @classmethod
-    def create(cls, name: str, description: str, price: int) -> 'Item':
+    def create(cls, name: str, description: str, price: int) -> Self:
         item = cls(
             id=uuid4().hex,
             name=name,
@@ -23,5 +23,5 @@ class Item(BaseModel):
         return item
 
     @classmethod
-    def get_by_id(cls, item_id: str) -> 'Item':
+    def get_by_id(cls, item_id: str) -> Self:
         return DDB().get_item(cls, id=item_id)
