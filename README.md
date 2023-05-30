@@ -17,9 +17,7 @@ $ source .venv/bin/activate
 Once the virtualenv is activated, you can install the required dependencies:
 
 ```
-$ pip install -r requirements-cdk.txt
-$ pip install -r requirements-test.txt
-$ pip install -r requirements-lambda.txt
+$ pip install -r requirements.txt
 ```
 
 At this point you can now synthesize the CloudFormation template for this code.
@@ -31,7 +29,8 @@ $ cdk synth
 And deploy
 
 ```
-$ pip install -r requirements-lambda.txt --target src/common/python
+$ pip install -r layers/requirements-common.txt --target layers/common/python
+$ cdk synth
 $ cdk deploy
 ```
 
