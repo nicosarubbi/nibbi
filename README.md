@@ -29,7 +29,7 @@ $ cdk synth
 And deploy
 
 ```
-$ pip install -r layers/requirements-common.txt --target layers/common/python
+$ pip install -r layers/common/requirements.txt --target layers/common/python
 $ cdk synth
 $ cdk deploy
 ```

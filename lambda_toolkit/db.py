@@ -42,12 +42,17 @@ class TableDescriptor(BaseModel):
             self._table = DDB().client.Table(os.environ.get(f'TABLE_{self.name}', self.name))
         return self._table
 
+    @property
+    def table_name(self) -> str:
+        return self.table.table_name
+
 
 class DDB:
     _client = None
 
     def __init__(self):
         if DDB._client is None:
+            import pdb; pdb.set_trace()
             DDB._client = boto3.resource("dynamodb")
         self.client = DDB._client
 
@@ -89,6 +94,20 @@ class DDB:
         index = self.meta(item).indexes[None]
         key = index.get_key(item)
         self.meta(item).table.delete_item(Key=key)
+
+    def batch_write_item(self, items: list[Model]):
+        batches = {}
+        for item in items:
+            meta = self.meta(item)
+            if meta.table_name not in batches:
+                batches[meta.table_name] = []
+            batches[meta.table_name].append(item)
+        for name, data in batches.items():
+            self.client.batch_write_item(
+                RequestItems={name: [
+                    {'PutRequest': {'Item': item.dict()}} for item in data
+                ]}
+            )
 
     def batch_get_item(self, model: type[Model], keys: list[dict]) -> list[Model]:
         table_name = self.meta(model).table_name
@@ -167,13 +186,13 @@ class DDB:
 
         return self.paginate(model, self.meta(model).table.query, **args)
 
-    def scan(self, model: type[Model], filter_expression, *,
+    def scan(self, model: type[Model], filter_expression=None, *,
              after=None,  # ExclusiveStartKey
              backward=False,  # not ScanIndexForward
              **kwargs) -> Iterable[Model]:
-        self.validate_model(model)
-
-        args = {"FilterExpression": filter_expression}
+        args = {}
+        if filter_expression:
+            args["FilterExpression"] = filter_expression
         if after:
             args['ExclusiveStartKey'] = after
         if backward:

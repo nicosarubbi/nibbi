@@ -1,11 +1,12 @@
 from decimal import Decimal
 from pydantic import BaseModel
+from unittest import TestCase
 
+from aws_cdk import aws_dynamodb as ddb
 import boto3
+from moto import mock_dynamodb2
 
 from lambda_toolkit.db import IndexDescriptor, DDB
-from aws_cdk import aws_dynamodb as ddb
-from moto import mock_dynamodb2
 
 
 def _index_schema(index: IndexDescriptor) -> list[dict]:
@@ -35,7 +36,7 @@ def _field_type(model: type[BaseModel], field_name):
 def mock_schema(model: type[BaseModel]):
     meta = DDB.meta(model)
     schema = dict(
-        TableName=meta.name,
+        TableName=f'mock_{meta.name}',
         BillingMode="PAY_PER_REQUEST",
     )
     attributes = set([])
@@ -57,14 +58,6 @@ def mock_schema(model: type[BaseModel]):
         for name in attributes
     ]
     return schema
-
-
-@mock_dynamodb2
-def mock_table(model):
-    DDB.meta(model)._table = None
-    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-    schema = mock_schema(model)
-    return dynamodb.create_table(**schema)
 
 
 def table_schema(model: type[BaseModel]):
@@ -91,3 +84,23 @@ def table_schema(model: type[BaseModel]):
             secondary_indexes.append(index_schema)
     return schema, secondary_indexes
 
+
+@mock_dynamodb2
+class ModelTestCase(TestCase):
+    models: dict[type[BaseModel], list[BaseModel]] = {}
+
+    def setUp(self):
+        [self.mock_table(model, *data) for model, data in self.models.items()]
+
+    def tearDown(self) -> None:
+        for model in self.models:
+            DDB.meta(model).table.delete()
+
+    def mock_table(self, model, *items):
+        DDB._client = boto3.resource('dynamodb', region_name='us-east-1')
+        schema = mock_schema(model)
+        DDB.meta(model)._table = DDB._client.create_table(**schema)
+        DDB().batch_write_item(items)
+        # for item in items:
+        #     DDB().put_item(item)
+        # return DDB.meta(model)._table

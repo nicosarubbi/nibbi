@@ -1,18 +1,15 @@
-from unittest import TestCase
-from fastapi.testclient import TestClient
-from cdk_toolkit import mock_db
+from cdk_toolkit.mock_db import ModelTestCase
 from lambda_toolkit.db import DDB
-
 from shared import models
 from src.api_v1 import app
+from fastapi.testclient import TestClient
 
 
-class TestPostItems(TestCase):
+class TestPostItems(ModelTestCase):
     client = TestClient(app)
-
-    @classmethod
-    def setUpClass(cls):
-        cls.items = mock_db.mock_table(models.Item)
+    models = {
+        models.Item: [],
+    }
 
     def test_api(self):
         body = {
@@ -31,22 +28,27 @@ class TestPostItems(TestCase):
         assert item.price == 50
 
 
-class TestPostItems(TestCase):
+class TestGetItems(ModelTestCase):
     client = TestClient(app)
 
-    @classmethod
-    def setUpClass(cls):
-        cls.items = mock_db.mock_table(models.Item)
-        cls.sword = models.Item.create(name='sword', description='melee weapon', price=50)
+    models = {
+        models.Item: [models.Item(name='sword', description='melee weapon', price=50)]
+    }
 
     def test_api(self):
-        response = self.client.get(f'/v1/items/{self.sword.id}')
+        sword = list(DDB().scan(models.Item))[-1]
+        response = self.client.get(f'/v1/items/{sword.id}')
         assert response.status_code == 200
 
         data = response.json()
         assert data == {
-            'id': self.sword.id,
+            'id': sword.id,
             'name': 'sword',
             'description': 'melee weapon',
             'price': 50,
+            'weight': 1,
         }
+
+    def test_api_2(self):
+        response = self.client.get(f'/v1/items/111')
+        assert response.status_code == 404

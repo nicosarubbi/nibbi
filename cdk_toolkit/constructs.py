@@ -65,7 +65,7 @@ class DynamoTable(Construct):
         self.table.add_global_secondary_index(partition_key=partition_key, sort_key=sort_key, index_name=name)
 
     @classmethod
-    def from_model(cls, scope, model: type[BaseModel]):
+    def from_model(cls, scope, model: type[BaseModel]) -> 'DynamoTable':
         schema, secondary_indexes = mock_db.table_schema(model)
         table = cls(scope, **schema)
         for index in secondary_indexes:
