@@ -101,6 +101,3 @@ class ModelTestCase(TestCase):
         schema = mock_schema(model)
         DDB.meta(model)._table = DDB._client.create_table(**schema)
         DDB().batch_write_item(items)
-        # for item in items:
-        #     DDB().put_item(item)
-        # return DDB.meta(model)._table
