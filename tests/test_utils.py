@@ -64,3 +64,53 @@ class ModelTestCase(TestCase):
         if isinstance(t, type) and any(issubclass(t, type_) for type_ in [int, float, Decimal]):
             return 'N'
         raise TypeError(f'DynamoDB Index field `{field_name}` should be either string or numeric')
+
+
+class Like:
+    DEBUG = False
+
+    def _echo(self, message):
+        if self.DEBUG:
+            raise AssertionError(message)
+        return False
+    
+    def __init__(self, want=None, **kwargs):
+        self.want = want if want is not None else kwargs
+    
+    def __eq__(self, other):
+        if isinstance(self.want, dict):
+            for key, value in self.want.items():
+                if key not in other:
+                    return self._echo(f"Key '{key}' not in {other}")
+                if value != other[key]:
+                    return self._echo(f"Value ({key}) {value} != {other[key]}")
+        else:
+            for value in self.want:
+                if value not in other:
+                    return self._echo(f"Value '{value}' not in {other}")
+        return True
+
+    def __repr__(self):
+        return repr(self.want)
+    
+    def __str__(self):
+        return str(self.want)
+
+
+class Any:
+    def __init__(self, *want):
+        self.want = want
+    
+    def __eq__(self, value) -> bool:
+        for x in self.want:
+            if x == value:
+                return True
+            if type(x) is type and isinstance(value, x):
+                return True
+        return len(self.want) == 0
+
+    def __str__(self) -> str:
+        return f"<Any{self.want}>"
+    
+    def __repr__(self) -> str:
+        return str(self)
