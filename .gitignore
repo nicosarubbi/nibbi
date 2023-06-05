@@ -7,5 +7,5 @@ __pycache__
 *.egg-info
 .cdk.staging
 cdk.out
-src/*/build
+src-shared/build
 layers/*/python
