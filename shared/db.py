@@ -52,7 +52,6 @@ class DDB:
 
     def __init__(self):
         if DDB._client is None:
-            import pdb; pdb.set_trace()
             DDB._client = boto3.resource("dynamodb")
         self.client = DDB._client
 

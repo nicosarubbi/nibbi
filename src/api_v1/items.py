@@ -1,9 +1,8 @@
 from fastapi import APIRouter, status, HTTPException
 from pydantic import BaseModel, constr, conint
 
-from lambda_toolkit.api import serialize
-from lambda_toolkit.db import DDB
-from shared.models import Item
+from shared.api import serialize
+from shared.models import Item, DDB
 
 
 class ItemPayload(BaseModel):

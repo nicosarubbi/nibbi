@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from uuid import uuid4
-from lambda_toolkit.db import DDB
+from shared.db import DDB
 
 
 ID = Field(default_factory=lambda: uuid4().hex)

@@ -1,8 +1,8 @@
-from cdk_toolkit.mock_db import ModelTestCase
-from lambda_toolkit.db import DDB
-from shared import models
-from src.api_v1 import app
 from fastapi.testclient import TestClient
+from shared import models
+from shared.db import DDB
+from src.api_v1 import app
+from tests.test_case import ModelTestCase
 
 
 class TestPostItems(ModelTestCase):
