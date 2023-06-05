@@ -1,0 +1,45 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      inputEnv:
+        description: 'Environment (sandbox)'
+        required: true
+        type: choice
+        default: 'sandbox'
+        options:
+          - sandbox
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  select-env:
+    runs-on: [ ci ]
+    steps:
+      id: set-env
+      run: |
+        env_name=${{ github.event.inputs.inputEnv }}
+        if [ "$env_name""== "sandbox" ]; then
+          echo "Environment to Sandbox"
+          echo "::set-output name=runner::deployer-sandbox"
+          echo "::set-output name=name::SANDBOX"
+          echo "::set-output name=aws::sandbox"
+        fi
+    outputs:
+      runner: ${{ steps.set-env.outputs.runner }}
+      name: ${{ steps.set-env.outputs.name }}
+      aws: ${{ steps.set-env.outputs.aws }}
+
+deploy:
+  needs: select-env
+  runs-on: ${{ needs.select-env.outputs.runner }}
+  name: "Deploy to ${{ needs.select-env.outputs.name }}"
+  steps:
+    - uses: actions/checkout@v2
+
+    - uses: ./.github/actions/deploy
+      with:
+        environment: ${{ needs.select-env.outputs.aws }}
