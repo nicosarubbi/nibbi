@@ -8,10 +8,8 @@
         "**/__pycache__": true,
         "**/.pytest_cache": true,
         "**/.venv": true,
-        "**/.vscode": true,
-        "**/cdk.out": true
-    },
-    "python.analysis.extraPaths": [
-        "./lambda-toolkit"
-    ]
+        "**/cdk.out": true,
+        "**/layers/common/python": true,
+        "**/src-shared/build": true
+    }
 }
