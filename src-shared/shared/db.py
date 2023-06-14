@@ -42,6 +42,10 @@ class TableDescriptor(BaseModel):
             self._table = DDB().client.Table(os.environ.get(f'TABLE_{self.name}', self.name))
         return self._table
 
+    @property
+    def table_name(self) -> str:
+        return self.table.table_name
+
 
 class DDB:
     _client = None
@@ -90,6 +94,20 @@ class DDB:
         key = index.get_key(item)
         self.meta(item).table.delete_item(Key=key)
 
+    def batch_write_item(self, items: list[Model]):
+        batches = {}
+        for item in items:
+            meta = self.meta(item)
+            if meta.table_name not in batches:
+                batches[meta.table_name] = []
+            batches[meta.table_name].append(item)
+        for name, data in batches.items():
+            self.client.batch_write_item(
+                RequestItems={name: [
+                    {'PutRequest': {'Item': item.dict()}} for item in data
+                ]}
+            )
+
     def batch_get_item(self, model: type[Model], keys: list[dict]) -> list[Model]:
         table_name = self.meta(model).table_name
 
@@ -123,7 +141,7 @@ class DDB:
             ExpressionAttributeValues=query_values,
             ExpressionAttributeNames=query_names,
             ReturnValues='ALL_NEW',
-            **kwargs,
+            **self.to_camel(kwargs),
         )
         for attr, value in response['Attributes'].items():
             setattr(item, attr, value)
@@ -163,23 +181,27 @@ class DDB:
             args['ExclusiveStartKey'] = after
         if backward:
             args['ScanIndexForward'] = False
-        args.update(kwargs)
+        args.update(self.to_camel(kwargs))
 
         return self.paginate(model, self.meta(model).table.query, **args)
 
-    def scan(self, model: type[Model], filter_expression, *,
+    def scan(self, model: type[Model], filter_expression=None, *,
              after=None,  # ExclusiveStartKey
              backward=False,  # not ScanIndexForward
              **kwargs) -> Iterable[Model]:
-        self.validate_model(model)
-
-        args = {"FilterExpression": filter_expression}
+        args = {}
+        if filter_expression:
+            args["FilterExpression"] = filter_expression
         if after:
             args['ExclusiveStartKey'] = after
         if backward:
             args['ScanIndexForward'] = False
-        args.update(kwargs)
+        args.update(self.to_camel(kwargs))
         return self.paginate(model, self.meta(model).table.scan, **args)
+
+    @staticmethod
+    def to_camel(d: dict) -> str:
+        return {k.replace('_', ' ').title().replace(' ', ''): v for k, v in d.items()}
 
     @staticmethod
     def paginate(model: type[Model], function: Callable, **arguments) -> Iterable[Model]:
