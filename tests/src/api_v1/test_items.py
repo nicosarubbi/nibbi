@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from shared import models
 from shared.db import DDB
-from src.api_v1 import app
+from src.api import app
 from tests.test_utils import ModelTestCase, Like, Any
 from parameterized import parameterized
 
@@ -18,7 +18,7 @@ class TestPostItems(ModelTestCase):
             "description": "melee weapon",
             "price": 50,
         }
-        response = self.client.post('/v1/items', json=body)
+        response = self.client.post('/api/v1/items', json=body)
         assert response.status_code == 201
 
         data = response.json()
@@ -43,7 +43,7 @@ class TestPostItems(ModelTestCase):
             ("price not numeric", {"name": "sword", "description": "melee weapon", "price": 'fifty'}),
     ])
     def test_error(self, _, body):
-        response = self.client.post('/v1/items', json=body)
+        response = self.client.post('/api/v1/items', json=body)
         assert response.status_code == 422
         assert response.json() == {"detail": [Like(msg=Any(str))]}
 
@@ -57,7 +57,7 @@ class TestGetItems(ModelTestCase):
 
     def test_api(self):
         sword = list(DDB().scan(models.Item))[-1]
-        response = self.client.get(f'/v1/items/{sword.id}')
+        response = self.client.get(f'/api/v1/items/{sword.id}')
         assert response.status_code == 200
 
         data = response.json()
@@ -70,6 +70,6 @@ class TestGetItems(ModelTestCase):
         })
 
     def test_api_2(self):
-        response = self.client.get(f'/v1/items/111')
+        response = self.client.get(f'/api/v1/items/111')
         assert response.status_code == 404
         assert response.json() == {"detail": Any(str)}

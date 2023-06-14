@@ -141,7 +141,7 @@ class DDB:
             ExpressionAttributeValues=query_values,
             ExpressionAttributeNames=query_names,
             ReturnValues='ALL_NEW',
-            **kwargs,
+            **self.to_camel(kwargs),
         )
         for attr, value in response['Attributes'].items():
             setattr(item, attr, value)
@@ -181,7 +181,7 @@ class DDB:
             args['ExclusiveStartKey'] = after
         if backward:
             args['ScanIndexForward'] = False
-        args.update(kwargs)
+        args.update(self.to_camel(kwargs))
 
         return self.paginate(model, self.meta(model).table.query, **args)
 
@@ -196,8 +196,12 @@ class DDB:
             args['ExclusiveStartKey'] = after
         if backward:
             args['ScanIndexForward'] = False
-        args.update(kwargs)
+        args.update(self.to_camel(kwargs))
         return self.paginate(model, self.meta(model).table.scan, **args)
+
+    @staticmethod
+    def to_camel(d: dict) -> str:
+        return {k.replace('_', ' ').title().replace(' ', ''): v for k, v in d.items()}
 
     @staticmethod
     def paginate(model: type[Model], function: Callable, **arguments) -> Iterable[Model]:

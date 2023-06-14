@@ -3,13 +3,13 @@ from uuid import uuid4
 from shared.db import DDB
 
 
-ID = Field(default_factory=lambda: uuid4().hex)
+AUTO_ID = Field(default_factory=lambda: uuid4().hex)
 
 
 @DDB.table('items', partition_key='id')
 @DDB.secondary_index('name-index', partition_key='name')
 class Item(BaseModel):
-    id: str = ID
+    id: str = AUTO_ID
     name: str
     description: str = ''
     price: int = 0
@@ -28,7 +28,7 @@ class AbilitySet(BaseModel):
 @DDB.table('characters', partition_key='id')
 @DDB.secondary_index('party-index', partition_key='party_name', sort_key='name')
 class Character(BaseModel):
-    id: str = ID
+    id: str = AUTO_ID
     name: str
     party_name: str
     attributes: AbilitySet

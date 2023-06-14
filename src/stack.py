@@ -45,11 +45,11 @@ class MainStack(Stack):
         items = DynamoTable.from_model(self, models.Item)
         
         # define lambdas here
-        api_v1 = Lambda(self, 'api_v1', layers=[common_layer], tables=[items])
+        api = Lambda(self, 'api', layers=[common_layer], tables=[items])
 
-        # define API here
-        api = Api(self, settings.API_NAME, api_key=settings.API_KEY_NAME, usage_plan=settings.API_USAGE_PLAN_NAME)
-        api.url(api_v1, url='/v1/{proxy+}', method='ANY', api_key_required=False)
+        # define API Gateway here
+        gateway = ApiGateway(self, 'api_gateway', api_key='api_key', usage_plan='api_usage_plan')
+        gateway.url(api, url='/api/{proxy+}', method='ANY', api_key_required=False)
 
 
 ##############
@@ -154,7 +154,7 @@ class Lambda(Construct):
             table.table.grant_read_write_data(self._lambda)
 
 
-class Api(Construct):
+class ApiGateway(Construct):
     def __init__(self, scope: Stack, name: str, api_key: str = None, usage_plan: str = None):
         super().__init__(scope, f"#{name}")
         self.scope = scope
