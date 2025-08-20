@@ -1,10 +1,19 @@
 from os import getenv
 from .default import *
 
-ENV = getenv('ENVIRONMENT', 'DEV')
+
+LOCAL = 'local'
+QA = 'qa'
+PRODUCTION = 'production'
+
+ENV = getenv('ENVIRONMENT', LOCAL)
 
 
-if ENV == 'SANDBOX':
-    from .sandbox import *
-elif ENV == 'DEV':
-    from .development import *
+if ENV == LOCAL:
+    from .local import *
+elif ENV == QA:
+    from .qa import *
+elif ENV == PRODUCTION:
+    from .production import *
+else:
+    from .default import *

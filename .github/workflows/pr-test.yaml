@@ -1,5 +1,10 @@
 name: Test
 
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: 3.12
+  NODE_VERSION: 20.x
+
 on:
   pull_request:
     branches: [ main ]
@@ -16,47 +21,31 @@ jobs:
   test:
     name: 'test'
     runs-on: [ ci-small ]
-    strategy:
-      max-parallel: 2
-      fail-fast: false
-      matrix:
-        include:
-          - name: shared
-            tests: tests/shared
-            cov: shared
-          - name: src
-            tests: tests/src
-            cov: src
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: action/setup-python@v2
+      - name: Install Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.9.6'
-      
-      -name: Setup Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: '14.18.0'
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install flake8
-        run: pip install flake8
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        working-directory: ./
-        shell: bash
         run: |
-          npm i -g aws-cdk
-          python3 -m venv .env
-          source .env/bin/activate
+          npm install
+          npm install -g aws-cdk
+          python3 -m venv .venv
+          source .venv/bin/activate
           python -m pip install --upgrade pip
-          pip install wheel
-          pip install -r requirements.txt
+          python -m pip install -r requirements-cdk.txt
+          python -m pip install -r requirements.txt
       
       - name: Run tests
-        working-directory: ./
         shell: bash
         run: |
           source .env/bin/activate
-          pytest ${{ matrix.tests }} --cov=${{ matrix.cov }}
+          pytest tests --cov=src

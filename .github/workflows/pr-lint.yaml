@@ -17,19 +17,18 @@ jobs:
     name: 'flake8 ${{ matrix.wd }}'
     runs-on: [ ci-small ]
     strategy:
-      max-parallel: 4
+      max-parallel: 3
       fail-fast: false
       matrix:
         include:
-          - wd: shared
           - wd: src
           - wd: tests
           - wd: settings
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: action/setup-python@v2
+        uses: action/setup-python@v4
         with:
           python-version: '3.9.6'
 
