@@ -2,6 +2,8 @@ name: Deploy
 
 env:
   AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: 174354456093
+  AWS_ACCESS_KEY_ID: AKIASRGCV3YOT5THHYRZ 
   PYTHON_VERSION: 3.12
   NODE_VERSION: 20.x
 
@@ -30,7 +32,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -51,7 +53,7 @@ jobs:
           python3 -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-cdk.txt
+          python -m pip install -r requirements.txt
 
       - name: Build common layer
         env:
@@ -59,7 +61,7 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          pip install -r src/common_layer/requirements.txt --target src/common_layer/python
+          pip install ./src --target common_layer/python
 
       - name: Synthesize and deploy CDK project
         env:

@@ -1,36 +1,23 @@
+from os import getenv
 from pydantic import BaseModel, Field
 from uuid import uuid4
-from shared.db import DDB
 
+from common.db import DynamoClient
 
+# dynamodb client
+TABLE_PREFIX = getenv('TABLE_PREFIX', 'app-local-')
+ddb = DynamoClient(
+    table_prefix=TABLE_PREFIX,
+)
+
+# fields
 AUTO_ID = Field(default_factory=lambda: uuid4().hex)
 
 
-@DDB.table('items', partition_key='id')
-@DDB.secondary_index('name-index', partition_key='name')
-class Item(BaseModel):
+@ddb.table('products', partition_key='id')
+@ddb.secondary_index('gsi_name', partition_key='name')
+class Product(BaseModel):
     id: str = AUTO_ID
     name: str
-    description: str = ''
-    price: int = 0
-    weight: int = 1
-
-
-class AbilitySet(BaseModel):
-    strenght: int = 0
-    dexterity: int = 0
-    constitution: int = 0
-    intellect: int = 0
-    wisdom: int = 0
-    charisma: int = 0
-
-
-@DDB.table('characters', partition_key='id')
-@DDB.secondary_index('party-index', partition_key='party_name', sort_key='name')
-class Character(BaseModel):
-    id: str = AUTO_ID
-    name: str
-    party_name: str
-    attributes: AbilitySet
-    inventory: list[Item]
-    inventory_capacity: int = 10
+    description: str | None = None
+    price: float

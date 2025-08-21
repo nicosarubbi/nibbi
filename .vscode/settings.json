@@ -11,5 +11,6 @@
         "**/cdk.out": true,
         "**/layers/common/python": true,
         "**/src-shared/build": true
-    }
+    },
+    "python.useEnvironmentsExtension": true
 }
